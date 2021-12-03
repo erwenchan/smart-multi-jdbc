@@ -1,7 +1,7 @@
 package cn.smartdec.multienv.data.jdbc;
 
-import cn.smartdec.multienv.support.jdbc.MultiJdbcContext;
 import cn.smartdec.multienv.support.jdbc.MultiJdbcApi;
+import cn.smartdec.multienv.support.jdbc.MultiJdbcContext;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalListener;
@@ -90,9 +90,6 @@ public class MultiDataSource extends AbstractDataSource implements InitializingB
                 .expireAfterAccess(24, TimeUnit.HOURS)
                 .removalListener(listener)
                 .build();
-
-        // 防止循环依赖，不从构造方法进行注入
-        multiJdbcApi = applicationContext.getBean(MultiJdbcApi.class);
     }
 
     @Override
@@ -164,12 +161,22 @@ public class MultiDataSource extends AbstractDataSource implements InitializingB
     }
 
     private DataSource buildDataSource(String envKey) {
-        SubDataSourceProperties subDataSourceProperties = multiJdbcApi.subDataSourceProperties(envKey);
+        SubDataSourceProperties subDataSourceProperties = getMultiJdbcApi().subDataSourceProperties(envKey);
         if (null == subDataSourceProperties) {
             return null;
         }
         DataSourceProperties properties = subDataSourceProperties.convert();
         return createDataSource(properties);
+    }
+
+    protected MultiJdbcApi getMultiJdbcApi() {
+        if (null != multiJdbcApi) {
+            return multiJdbcApi;
+        }
+
+        // 防止循环依赖，不先注入
+        multiJdbcApi = applicationContext.getBean(MultiJdbcApi.class);
+        return multiJdbcApi;
     }
 
     @Override
